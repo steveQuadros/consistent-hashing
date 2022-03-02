@@ -17,60 +17,91 @@ type Node struct {
 const DataCount = 10_000_000
 
 func main() {
-	//RunBasic()
-	//HashRangesToLimitIDMoves()
+	//BigMod()
+	RunBasic()
+	OddEvenAddServer()
+	HashRangesToLimitIDMoves()
 	VirtualNodes()
 }
 
-//func RunBasic() {
-//	nodeCount := uint64(100)
-//	dataIDCount := DataCount
-//
-//	nodes := make([]Node, nodeCount)
-//
-//	var max int
-//	for i := 0; i < dataIDCount; i++ {
-//		hash := GetNodeID(strconv.Itoa(i))
-//		nodeID := hash % nodeCount
-//		nodes[nodeID].data = append(nodes[nodeID].data, strconv.Itoa(i))
-//		if len(nodes[nodeID].data) > max {
-//			max = len(nodes[nodeID].data)
-//		}
-//	}
-//
-//	desiredCount := uint64(dataIDCount) / nodeCount
-//	fmt.Printf("%d: desired IDs per node\n", desiredCount)
-//	fmt.Printf(
-//		"%d: max ids on any given node, %0.2f over\n",
-//		max,
-//		100.00*float64(max-int(desiredCount))/float64(desiredCount),
-//	)
-//}
+func BigMod() {
+	a, b := big.NewInt(10), big.NewInt(11)
 
-// Demonstrates how many IDs will have to be moved if we add a single server
-// It's around 99 percent of IDs for adding 1% new servers!
-//func OddEvenAddServer() {
-//	var nodeCount uint64 = 100
-//	var newNodeCount uint64 = 101
-//	dataIDCount := DataCount
-//
-//	var movedIDs int
-//	for i := 0; i < dataIDCount; i++ {
-//		hash := GetNodeID(strconv.Itoa(i))
-//		nodeID := hash % nodeCount
-//
-//		hash = GetNodeID(strconv.Itoa(i))
-//		newNodeID := hash % newNodeCount
-//		if nodeID != newNodeID {
-//			movedIDs++
-//		}
-//	}
-//	percentMoved := float64(movedIDs) / float64(dataIDCount) * 100.00
-//	fmt.Printf("%d ids moved %0.2f percent", movedIDs, percentMoved)
-//}
+	c := big.NewInt(0)
+	var diff int
+	for i := 0; i < 100; i++ {
+		bigI := big.NewInt(int64(i))
+		n := c.Mod(bigI, a)
+		fmt.Println(i, c)
+		nn := c.Mod(bigI, b)
+		fmt.Println(bigI, c)
+		if n != nn {
+			diff++
+		}
+	}
+	fmt.Println("diff", diff)
+}
+
+func RunBasic() {
+	nodeCount := uint64(100)
+	dataIDCount := DataCount
+
+	nodes := make([]Node, nodeCount)
+
+	var max int
+	mod := big.NewInt(0)
+	bigNodeCount := big.NewInt(int64(nodeCount))
+	for i := 0; i < dataIDCount; i++ {
+		hash := GetNodeID(strconv.Itoa(i))
+		nodeID := mod.Mod(hash, bigNodeCount).Uint64()
+		nodes[nodeID].data = append(nodes[nodeID].data, strconv.Itoa(i))
+		if len(nodes[nodeID].data) > max {
+			max = len(nodes[nodeID].data)
+		}
+	}
+
+	desiredCount := uint64(dataIDCount) / nodeCount
+	fmt.Printf("%d: desired IDs per node\n", desiredCount)
+	fmt.Printf(
+		"%d: max ids on any given node, %0.2f over\n",
+		max,
+		100.00*float64(max-int(desiredCount))/float64(desiredCount),
+	)
+}
+
+//Demonstrates how many IDs will have to be moved if we add a single server
+//It's around 99 percent of IDs for adding 1% new servers!
+func OddEvenAddServer() {
+	var nodeCount uint64 = 100
+	var newNodeCount uint64 = 101
+	dataIDCount := DataCount
+
+	var movedIDs int
+	mod := big.NewInt(0)
+	var max uint64
+	bigNodeCount := big.NewInt(int64(nodeCount))
+	bigNewNodeCount := big.NewInt(int64(newNodeCount))
+	for i := 0; i < dataIDCount; i++ {
+		hash := GetNodeID(strconv.Itoa(i))
+
+		nodeID := mod.Mod(hash, bigNodeCount)
+		newNodeID := mod.Mod(hash, bigNewNodeCount)
+		if nodeID.Uint64() > max {
+			max = nodeID.Uint64()
+		}
+		if newNodeID.Uint64() > max {
+			max = newNodeID.Uint64()
+		}
+		if nodeID.Uint64() != newNodeID.Uint64() {
+			movedIDs++
+		}
+	}
+	percentMoved := float64(movedIDs) / float64(dataIDCount) * 100.00
+	fmt.Printf("OddEven: %d ids moved %0.2f percent\n", movedIDs, percentMoved)
+	fmt.Println("larget nodeID", max)
+}
 
 // If instead we use hash ranges per node, we can drop the number of IDs moved when we add a new server
-//
 func HashRangesToLimitIDMoves() {
 	var nodeCount uint64 = 100
 	var newNodeCount uint64 = 101
@@ -108,7 +139,7 @@ func HashRangesToLimitIDMoves() {
 	}
 
 	percentMoved := float64(movedIDs) / float64(dataIDCount) * 100.00
-	fmt.Printf("%d ids moved %0.2f percent", movedIDs, percentMoved)
+	fmt.Printf("NodeRanges: %d ids moved %0.2f percent\n", movedIDs, percentMoved)
 }
 
 func VirtualNodes() {
@@ -159,7 +190,7 @@ func VirtualNodes() {
 		}
 	}
 	percentMoved := float64(movedIDs) / float64(dataIDCount) * 100.00
-	fmt.Printf("%d ids moved %0.2f percent", movedIDs, percentMoved)
+	fmt.Printf("%d ids moved %0.2f percent\n", movedIDs, percentMoved)
 }
 
 // GetNodeID takes in a string, md5s it, and returns the bigint value of it

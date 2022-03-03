@@ -7,16 +7,25 @@ import (
 	"strconv"
 )
 
-type Node struct {
-	id   int
-	data []string
-}
-
 // https://docs.openstack.org/swift/latest/ring_background.html
 
 const DataCount = 10_000_000
 
 func main() {
+	PARTITION_POWER = 16
+	REPLICAS = 3
+	NODE_COUNT = 256
+	ZONE_COUNT = 16
+	nodes = {}
+	while len(nodes) < NODE_COUNT:
+	zone = 0
+	while zone < ZONE_COUNT and len(nodes) < NODE_COUNT:
+	node_id = len(nodes)
+	nodes[node_id] = {'id': node_id, 'zone': zone}
+	zone += 1
+	ring = build_ring(nodes, PARTITION_POWER, REPLICAS)
+	test_ring(ring)
+
 	//BigMod()
 	RunBasic()
 	OddEvenAddServer()
@@ -92,7 +101,7 @@ func OddEvenAddServer() {
 		if newNodeID.Uint64() > max {
 			max = newNodeID.Uint64()
 		}
-		if nodeID.Uint64() != newNodeID.Uint64() {
+		if nodeID.Cmp(newNodeID) != 0 {
 			movedIDs++
 		}
 	}
@@ -142,6 +151,7 @@ func HashRangesToLimitIDMoves() {
 	fmt.Printf("NodeRanges: %d ids moved %0.2f percent\n", movedIDs, percentMoved)
 }
 
+// datacount expects 1000000 records, how do we set up our ranges without that count?
 func VirtualNodes() {
 	nodeCount := 100
 	vnodeCount := 1000
@@ -191,18 +201,6 @@ func VirtualNodes() {
 	}
 	percentMoved := float64(movedIDs) / float64(dataIDCount) * 100.00
 	fmt.Printf("%d ids moved %0.2f percent\n", movedIDs, percentMoved)
-}
-
-// GetNodeID takes in a string, md5s it, and returns the bigint value of it
-// see here for more information:
-// https://stackoverflow.com/questions/28128285/best-way-to-convert-an-md5-to-decimal-in-golang
-// Note we MUST return a bigint, as the value written by the md5.Sum() is much larger than uint64
-func GetNodeID(s string) *big.Int {
-	h := md5.New()
-	h.Write([]byte(s))
-	hash := big.NewInt(0)
-	hash.SetBytes(h.Sum(nil))
-	return hash
 }
 
 // in this case returns the index of the node onto which the data (target) should live

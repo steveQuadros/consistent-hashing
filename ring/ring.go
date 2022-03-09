@@ -30,7 +30,7 @@ func New(nodeCount, zoneCount, partitionPower, replicas int) Ring {
 }
 
 func (r *Ring) GetNodes(id int) []Node {
-	hash := GetNodeID(strconv.Itoa(id))
+	hash := GetNodeID(id)
 	hash = hash >> r.partitionShift
 	part := int(hash)
 	nodeIDs := []int{r.part2Node[part]}
@@ -75,7 +75,8 @@ func containsNode(n Node, nodes []Node) bool {
 // see here for more information:
 // https://stackoverflow.com/questions/28128285/best-way-to-convert-an-md5-to-decimal-in-golang
 
-func GetNodeID(s string) uint32 {
+func GetNodeID(n int) uint32 {
+	s := strconv.Itoa(n)
 	h := md5.New()
 	h.Write([]byte(s))
 	sum := h.Sum(nil)

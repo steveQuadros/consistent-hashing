@@ -45,18 +45,20 @@ func BenchmarkRing(b *testing.B) {
 	ZoneCount := 16
 	ring := New(NodeCount, ZoneCount, PartitionPower, Replicas)
 
-	dataIDCount := 10000000
+	dataIDCount := 1000
 	nodeCounts := map[int]int{}
 	zoneCounts := map[int]int{}
 
 	for i := 0; i < dataIDCount; i++ {
 		nodes := ring.GetNodes(i)
+		fmt.Println(i, nodes)
 		for j := range nodes {
 			nodeCounts[nodes[j].id]++
-			zoneCounts[nodes[i].zone]++
+			zoneCounts[nodes[j].zone]++
 		}
 	}
-	b.Log(fmt.Sprintf("%ds to test ring", time.Since(start)))
+
+	b.Log(fmt.Sprintf("%0.1fs to test ring", time.Since(start).Seconds()))
 
 	desiredCount := float64(dataIDCount) / float64(NodeCount*ring.replicas)
 	b.Log(fmt.Sprintf("%d: desired data ids per node", int(desiredCount)))
@@ -110,6 +112,24 @@ func BenchmarkRing(b *testing.B) {
 	   print '%d: Least data ids in one zone, %.02f%% under' % \
 	       (min_count, under)
 	*/
+}
+
+func TestGetID(t *testing.T) {
+	tc := []struct {
+		in  int
+		out uint32
+	}{
+		{999, 3070657373},
+		{1, 3301589560},
+		{2, 3357438605},
+	}
+
+	for _, tt := range tc {
+		t.Run(fmt.Sprintf("%d -> %d", tt.in, tt.out), func(t *testing.T) {
+			actual := GetNodeID(tt.in)
+			require.Equal(t, tt.out, actual, fmt.Sprintf("%d -> %d", tt.out, actual))
+		})
+	}
 }
 
 func TestPow(t *testing.T) {

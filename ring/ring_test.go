@@ -15,11 +15,48 @@ func TestRing(t *testing.T) {
 	NodeCount := 256
 	ZoneCount := 16
 	ring := New(NodeCount, ZoneCount, PartitionPower, Replicas)
-	t.Log(ring.GetNodes(0))
-	t.Log(ring.GetNodes(1))
-	t.Log(ring.GetNodes(2))
-	t.Log(ring.GetNodes(255))
-	t.Log(ring.GetNodes(0))
+	testZones(t, ring)
+	testNodePartitions(t, ring, NodeCount, PartitionPower)
+	testGetNodes(t, ring, Replicas)
+}
+
+func testZones(t *testing.T, ring Ring) {
+	// there should be equal representation amongst the nodes since everything is power of 2
+	nodeCountPerZone := ring.NodeCount() / ring.ZoneCount()
+	zones := map[int]int{}
+	for _, n := range ring.Nodes() {
+		zones[n.zone]++
+	}
+	for _, c := range zones {
+		require.Equal(t, nodeCountPerZone, c)
+	}
+}
+
+func testNodePartitions(t *testing.T, ring Ring, nodeCount, partitionPower int) {
+	// each node should have the same number of virtual nodes
+	partitionsPerNode := pow2(partitionPower) / nodeCount
+	nodePartitionCount := map[int]int{}
+	for _, nodeID := range ring.Partitions() {
+		nodePartitionCount[nodeID]++
+	}
+
+	for id, c := range nodePartitionCount {
+		require.Equal(t, partitionsPerNode, c, fmt.Sprintf("node: %d incorrect node count", id))
+	}
+}
+
+func testGetNodes(t *testing.T, ring Ring, replicas int) {
+	// get nodes should return REPLICA number of different nodes to write to
+	nodes := ring.GetNodes(0)
+	require.Equal(t, replicas, len(nodes))
+
+	// ids need to be unique
+	nodeIDs := map[int]struct{}{}
+	for _, n := range nodes {
+		nodeIDs[n.id] = struct{}{}
+	}
+
+	require.Equal(t, replicas, len(nodeIDs))
 }
 
 /*
@@ -114,6 +151,14 @@ func BenchmarkRing(b *testing.B) {
 	*/
 }
 
+// TestGetID verifies behavior is in line with python implementation
+// ex:
+// >>> unpack_from('>I', md5(str(2)).digest())
+//     (3357438605,)
+// >>> unpack_from('>I', md5(str(1)).digest())
+//     (3301589560,)
+// >>> unpack_from('>I', md5(str(999)).digest())
+//     (3070657373,)
 func TestGetID(t *testing.T) {
 	tc := []struct {
 		in  int

@@ -12,6 +12,7 @@ type Ring struct {
 	part2Node      []int
 	replicas       int
 	partitionShift int
+	zoneCount      int
 }
 
 type Node struct {
@@ -26,7 +27,28 @@ func New(nodeCount, zoneCount, partitionPower, replicas int) Ring {
 		part2Node:      initPart2Node(partitionPower, nodeCount),
 		replicas:       replicas,
 		partitionShift: 32 - partitionPower,
+		zoneCount:      zoneCount,
 	}
+}
+
+func (r *Ring) Nodes() []Node {
+	return r.nodes
+}
+
+func (r *Ring) Partitions() []int {
+	return r.part2Node
+}
+
+func (r *Ring) NodeCount() int {
+	return len(r.nodes)
+}
+
+func (r *Ring) ZoneCount() int {
+	return r.zoneCount
+}
+
+func (r *Ring) PartitionCount() int {
+	return len(r.part2Node)
 }
 
 func (r *Ring) GetNodes(id int) []Node {
@@ -35,6 +57,8 @@ func (r *Ring) GetNodes(id int) []Node {
 	part := int(hash)
 	nodeIDs := []int{r.part2Node[part]}
 	zones := []Node{r.nodes[nodeIDs[0]]}
+
+	// replicate to number of replica nodes
 	for replica := 1; replica < r.replicas; replica++ {
 		for contains(r.part2Node[part], nodeIDs) && containsNode(r.nodes[r.part2Node[part]], zones) {
 			part++
@@ -43,7 +67,7 @@ func (r *Ring) GetNodes(id int) []Node {
 			}
 		}
 		nodeIDs = append(nodeIDs, r.part2Node[part])
-		zones = append(zones, r.nodes[len(nodeIDs)-1])
+		zones = append(zones, r.nodes[nodeIDs[len(nodeIDs)-1]])
 	}
 
 	nodes := make([]Node, len(nodeIDs))
@@ -93,17 +117,17 @@ func initNodes(nodeCount, zoneCount int) []Node {
 		var zone int
 		for zone < zoneCount && i < nodeCount {
 			nodeID := i
-			nodes[nodeID] = Node{id: nodeID, zone: zone}
+			nodes[i] = Node{id: nodeID, zone: zone}
 			zone++
+			i++
 		}
-		i++
 	}
 	return nodes
 }
 
 // initPart2Node creates number of nodes equal to 2 ^ partitionPower
 // assigns that to a node, and then shuffles the part2Node
-// we shuffle nodes so that when replicating, we will not replicate to nodes that are
+// we shuffle nodes so that when replicating, we will not replicate to nodes that are adjacent
 func initPart2Node(partitionPower, nodeCount int) []int {
 	total := pow2(partitionPower)
 	part2Node := make([]int, total)

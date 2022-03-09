@@ -2,7 +2,7 @@ package ring
 
 import (
 	"crypto/md5"
-	"math/big"
+	"encoding/binary"
 	"math/rand"
 	"strconv"
 )
@@ -29,45 +29,60 @@ func New(nodeCount, zoneCount, partitionPower, replicas int) Ring {
 	}
 }
 
-/*
-	def get_nodes(self, data_id):
-        data_id = str(data_id)
-        part = unpack_from('>I',
-           md5(data_id).digest())[0] >> self.partition_shift
-        node_ids = [self.part2node[part]]
-        zones = [self.nodes[node_ids[0]]]
-        for replica in range(1, self.replicas):
-            while self.part2node[part] in node_ids and \
-                   self.nodes[self.part2node[part]] in zones:
-                part += 1
-                if part >= len(self.part2node):
-                    part = 0
-            node_ids.append(self.part2node[part])
-            zones.append(self.nodes[node_ids[-1]])
-        return [self.nodes[n] for n in node_ids]
- */
-func (r *Ring) GetNodes(id int) {
+func (r *Ring) GetNodes(id int) []Node {
 	hash := GetNodeID(strconv.Itoa(id))
-	hash.Rsh(hash, uint(r.partitionShift))
-	part := int(hash.Int64())
+	hash = hash >> r.partitionShift
+	part := int(hash)
 	nodeIDs := []int{r.part2Node[part]}
-	zones := r.nodes[nodeIDs[0]]
-
-	for i := 0; i < r.replicas; i++ {
-		for part < len(r.nodes) 
+	zones := []Node{r.nodes[nodeIDs[0]]}
+	for replica := 1; replica < r.replicas; replica++ {
+		for contains(r.part2Node[part], nodeIDs) && containsNode(r.nodes[r.part2Node[part]], zones) {
+			part++
+			if part >= len(r.part2Node) {
+				part = 0
+			}
+		}
+		nodeIDs = append(nodeIDs, r.part2Node[part])
+		zones = append(zones, r.nodes[len(nodeIDs)-1])
 	}
+
+	nodes := make([]Node, len(nodeIDs))
+	for i := range nodeIDs {
+		nodes[i] = r.nodes[nodeIDs[i]]
+	}
+	return nodes
 }
 
-// GetNodeID takes in a string, md5s it, and returns the bigint value of it
+func contains(n int, arr []int) bool {
+	for i := range arr {
+		if n == arr[i] {
+			return true
+		}
+	}
+	return false
+}
+
+func containsNode(n Node, nodes []Node) bool {
+	for i := range nodes {
+		if nodes[i].id == n.id {
+			return true
+		}
+	}
+	return false
+}
+
+// GetNodeID takes in a string, md5s it, and returns a 32 bit value of it truncated
 // see here for more information:
 // https://stackoverflow.com/questions/28128285/best-way-to-convert-an-md5-to-decimal-in-golang
-// Note we MUST return a bigint, as the value written by the md5.Sum() is much larger than uint64
-func GetNodeID(s string) *big.Int {
+
+func GetNodeID(s string) uint32 {
 	h := md5.New()
 	h.Write([]byte(s))
-	hash := big.NewInt(0)
-	hash.SetBytes(h.Sum(nil))
-	return hash
+	sum := h.Sum(nil)
+	// we cut to 4 most significant bytes to return a 32 bit int ala what unpack_from(">I"...) does
+	// see calcsize on unpack_from page https://docs.python.org/3/library/struct.html#struct.calcsize
+	sum = sum[:4]
+	return binary.BigEndian.Uint32(sum)
 }
 
 func initNodes(nodeCount, zoneCount int) []Node {
@@ -80,6 +95,7 @@ func initNodes(nodeCount, zoneCount int) []Node {
 			nodes[nodeID] = Node{id: nodeID, zone: zone}
 			zone++
 		}
+		i++
 	}
 	return nodes
 }
@@ -93,6 +109,7 @@ func initPart2Node(partitionPower, nodeCount int) []int {
 	var i int
 	for i < total {
 		part2Node[i] = i % nodeCount
+		i++
 	}
 	shuffle(part2Node)
 	return part2Node
@@ -100,16 +117,16 @@ func initPart2Node(partitionPower, nodeCount int) []int {
 
 // shuffle is a fisher yates shuffle algo: https://en.wikipedia.org/wiki/Fisher–Yates_shuffle
 func shuffle(arr []int) {
-	n := len(arr)
-	for i := n; i > 0; i++ {
-		j := rand.Intn(i + 1)
+	n := len(arr) - 1
+	for i := n; i > 0; i-- {
+		j := rand.Intn(i)
 		arr[i], arr[j] = arr[j], arr[i]
 	}
 }
 
 func pow2(n int) int {
 	if n > 1 {
-		return 2 << (n - 1)
+		return 1 << n
 	} else {
 		return 1
 	}

@@ -7,27 +7,17 @@ import (
 	"strconv"
 )
 
+/*
+THIS IS A PLACEHOLDER - DO NOT JUDGE AND CHECK OUT ring PACKAGE FOR ACTUAL THINGS
+*/
+
 // https://docs.openstack.org/swift/latest/ring_background.html
 
 const DataCount = 10_000_000
 
 func main() {
-	PARTITION_POWER = 16
-	REPLICAS = 3
-	NODE_COUNT = 256
-	ZONE_COUNT = 16
-	nodes = {}
-	while len(nodes) < NODE_COUNT:
-	zone = 0
-	while zone < ZONE_COUNT and len(nodes) < NODE_COUNT:
-	node_id = len(nodes)
-	nodes[node_id] = {'id': node_id, 'zone': zone}
-	zone += 1
-	ring = build_ring(nodes, PARTITION_POWER, REPLICAS)
-	test_ring(ring)
-
 	//BigMod()
-	RunBasic()
+	//RunBasic()
 	OddEvenAddServer()
 	HashRangesToLimitIDMoves()
 	VirtualNodes()
@@ -51,32 +41,32 @@ func BigMod() {
 	fmt.Println("diff", diff)
 }
 
-func RunBasic() {
-	nodeCount := uint64(100)
-	dataIDCount := DataCount
-
-	nodes := make([]Node, nodeCount)
-
-	var max int
-	mod := big.NewInt(0)
-	bigNodeCount := big.NewInt(int64(nodeCount))
-	for i := 0; i < dataIDCount; i++ {
-		hash := GetNodeID(strconv.Itoa(i))
-		nodeID := mod.Mod(hash, bigNodeCount).Uint64()
-		nodes[nodeID].data = append(nodes[nodeID].data, strconv.Itoa(i))
-		if len(nodes[nodeID].data) > max {
-			max = len(nodes[nodeID].data)
-		}
-	}
-
-	desiredCount := uint64(dataIDCount) / nodeCount
-	fmt.Printf("%d: desired IDs per node\n", desiredCount)
-	fmt.Printf(
-		"%d: max ids on any given node, %0.2f over\n",
-		max,
-		100.00*float64(max-int(desiredCount))/float64(desiredCount),
-	)
-}
+//func RunBasic() {
+//	nodeCount := uint64(100)
+//	dataIDCount := DataCount
+//
+//	nodes := make([]Node, nodeCount)
+//
+//	var max int
+//	mod := big.NewInt(0)
+//	bigNodeCount := big.NewInt(int64(nodeCount))
+//	for i := 0; i < dataIDCount; i++ {
+//		hash := GetNodeID(strconv.Itoa(i))
+//		nodeID := mod.Mod(hash, bigNodeCount).Uint64()
+//		nodes[nodeID] = append(nodes[nodeID], strconv.Itoa(i))
+//		if len(nodes[nodeID]) > max {
+//			max = len(nodes[nodeID])
+//		}
+//	}
+//
+//	desiredCount := uint64(dataIDCount) / nodeCount
+//	fmt.Printf("%d: desired IDs per node\n", desiredCount)
+//	fmt.Printf(
+//		"%d: max ids on any given node, %0.2f over\n",
+//		max,
+//		100.00*float64(max-int(desiredCount))/float64(desiredCount),
+//	)
+//}
 
 //Demonstrates how many IDs will have to be moved if we add a single server
 //It's around 99 percent of IDs for adding 1% new servers!
@@ -216,4 +206,12 @@ func BisectLeft(arr []uint64, target uint64) uint64 {
 		}
 	}
 	return uint64(left)
+}
+
+func GetNodeID(s string) *big.Int {
+	h := md5.New()
+	h.Write([]byte(s))
+	hash := big.NewInt(0)
+	hash.SetBytes(h.Sum(nil))
+	return hash
 }

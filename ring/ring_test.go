@@ -82,18 +82,21 @@ func BenchmarkRing(b *testing.B) {
 	ZoneCount := 16
 	ring := New(NodeCount, ZoneCount, PartitionPower, Replicas)
 
-	dataIDCount := 1000
+	dataIDCount := 100000
 	nodeCounts := map[int]int{}
 	zoneCounts := map[int]int{}
 
 	for i := 0; i < dataIDCount; i++ {
 		nodes := ring.GetNodes(i)
-		fmt.Println(i, nodes)
+		fmt.Println(nodes)
 		for j := range nodes {
 			nodeCounts[nodes[j].id]++
 			zoneCounts[nodes[j].zone]++
 		}
 	}
+
+	fmt.Println(nodeCounts)
+	fmt.Println(zoneCounts)
 
 	b.Log(fmt.Sprintf("%0.1fs to test ring", time.Since(start).Seconds()))
 
@@ -107,7 +110,7 @@ func BenchmarkRing(b *testing.B) {
 		}
 	}
 
-	over := 100.0 * (float64(maxCount) - desiredCount) / desiredCount
+	over := 100.0 * float64(maxCount-int(desiredCount)) / desiredCount
 	b.Log(fmt.Sprintf("%d: most data ids on one node, %.02f%% over", maxCount, over))
 
 	minCount := math.MaxInt64

@@ -59,20 +59,6 @@ func testGetNodes(t *testing.T, ring Ring, replicas int) {
 	require.Equal(t, replicas, len(nodeIDs))
 }
 
-/*
-begin = time()
-    DATA_ID_COUNT = 10000000
-    node_counts = {}
-    zone_counts = {}
-    for data_id in range(DATA_ID_COUNT):
-        for node in ring.get_nodes(data_id):
-            node_counts[node['id']] = \
-                node_counts.get(node['id'], 0) + 1
-            zone_counts[node['zone']] = \
-                zone_counts.get(node['zone'], 0) + 1
-    print '%ds to test ring' % (time() - begin)
-*/
-
 func BenchmarkRing(b *testing.B) {
 	start := time.Now()
 
@@ -82,25 +68,21 @@ func BenchmarkRing(b *testing.B) {
 	ZoneCount := 16
 	ring := New(NodeCount, ZoneCount, PartitionPower, Replicas)
 
-	dataIDCount := 100000
+	dataIDCount := 10000000
 	nodeCounts := map[int]int{}
 	zoneCounts := map[int]int{}
 
 	for i := 0; i < dataIDCount; i++ {
 		nodes := ring.GetNodes(i)
-		fmt.Println(nodes)
 		for j := range nodes {
 			nodeCounts[nodes[j].id]++
 			zoneCounts[nodes[j].zone]++
 		}
 	}
 
-	fmt.Println(nodeCounts)
-	fmt.Println(zoneCounts)
-
 	b.Log(fmt.Sprintf("%0.1fs to test ring", time.Since(start).Seconds()))
 
-	desiredCount := float64(dataIDCount) / float64(NodeCount*ring.replicas)
+	desiredCount := float64(dataIDCount) / float64(NodeCount) * float64(ring.replicas)
 	b.Log(fmt.Sprintf("%d: desired data ids per node", int(desiredCount)))
 
 	var maxCount int
@@ -110,7 +92,7 @@ func BenchmarkRing(b *testing.B) {
 		}
 	}
 
-	over := 100.0 * float64(maxCount-int(desiredCount)) / desiredCount
+	over := 100.0 * (float64(maxCount-int(desiredCount)) / desiredCount)
 	b.Log(fmt.Sprintf("%d: most data ids on one node, %.02f%% over", maxCount, over))
 
 	minCount := math.MaxInt64
@@ -134,7 +116,7 @@ func BenchmarkRing(b *testing.B) {
 			maxCount = c
 		}
 	}
-	over = 100.0 * (float64(maxCount) - desiredZones) / desiredCount
+	over = 100.0 * ((float64(maxCount) - desiredZones) / desiredCount)
 	b.Log(fmt.Sprintf("%d: most data ids in one zone, %.02f%% over", maxCount, over))
 
 	minCount = math.MaxInt32
@@ -144,14 +126,8 @@ func BenchmarkRing(b *testing.B) {
 		}
 	}
 
-	under = 100.0 * (desiredZones - float64(minCount)) / desiredCount
+	under = 100.0 * ((desiredZones - float64(minCount)) / desiredCount)
 	b.Log(fmt.Sprintf("%d: least data ids in one zone, %.02f%% under", minCount, under))
-	/*
-	   under = \
-	       100.0 * (desired_count - min_count) / desired_count
-	   print '%d: Least data ids in one zone, %.02f%% under' % \
-	       (min_count, under)
-	*/
 }
 
 // TestGetID verifies behavior is in line with python implementation

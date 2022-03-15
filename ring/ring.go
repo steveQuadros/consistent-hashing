@@ -3,12 +3,12 @@ package ring
 import (
 	"crypto/md5"
 	"encoding/binary"
+	"fmt"
 	"math/rand"
-	"strconv"
 )
 
 type Ring struct {
-	nodes          []Node
+	nodes          []*Node
 	part2Node      []int
 	replicas       int
 	partitionShift int
@@ -16,22 +16,54 @@ type Ring struct {
 }
 
 type Node struct {
-	id   int
-	zone int
-	data []string
+	ID   int
+	Zone int
+	Data map[string]string
 }
 
-func New(nodeCount, zoneCount, partitionPower, replicas int) Ring {
+type KeyExistsError struct {
+	Key, CurrentVal string
+}
+
+func (e KeyExistsError) Error() string {
+	return fmt.Sprintf("key %q already exists with value %q", e.Key, e.CurrentVal)
+}
+
+type NoSuchKeyError struct {
+	Key string
+}
+
+func (e NoSuchKeyError) Error() string {
+	return fmt.Sprintf("key %q does not exist", e.Key)
+}
+
+func (n *Node) Set(k, v string) error {
+	if val, exists := n.Data[k]; exists {
+		return KeyExistsError{Key: k, CurrentVal: val}
+	}
+	n.Data[k] = v
+	return nil
+}
+
+func (n *Node) Update(k, v string) error {
+	if _, exists := n.Data[k]; !exists {
+		return NoSuchKeyError{Key: k}
+	}
+	n.Data[k] = v
+	return nil
+}
+
+func New(nodes []*Node, zoneCount, partitionPower, replicas int) Ring {
 	return Ring{
-		nodes:          initNodes(nodeCount, zoneCount),
-		part2Node:      initPart2Node(partitionPower, nodeCount),
+		nodes:          nodes,
+		part2Node:      initPart2Node(partitionPower, len(nodes)),
 		replicas:       replicas,
 		partitionShift: 32 - partitionPower,
 		zoneCount:      zoneCount,
 	}
 }
 
-func (r *Ring) Nodes() []Node {
+func (r *Ring) Nodes() []*Node {
 	return r.nodes
 }
 
@@ -51,12 +83,12 @@ func (r *Ring) PartitionCount() int {
 	return len(r.part2Node)
 }
 
-func (r *Ring) GetNodes(id int) []Node {
+func (r *Ring) GetNodes(id string) []*Node {
 	hash := GetNodeID(id)
 	hash = hash >> r.partitionShift
 	part := int(hash)
 	nodeIDs := []int{r.part2Node[part]}
-	zones := []Node{r.nodes[nodeIDs[0]]}
+	zones := []*Node{r.nodes[nodeIDs[0]]}
 
 	// replicate to number of replica nodes
 	for replica := 1; replica < r.replicas; replica++ {
@@ -70,7 +102,7 @@ func (r *Ring) GetNodes(id int) []Node {
 		zones = append(zones, r.nodes[nodeIDs[len(nodeIDs)-1]])
 	}
 
-	nodes := make([]Node, len(nodeIDs))
+	nodes := make([]*Node, len(nodeIDs))
 	for i := range nodeIDs {
 		nodes[i] = r.nodes[nodeIDs[i]]
 	}
@@ -86,9 +118,9 @@ func contains(n int, arr []int) bool {
 	return false
 }
 
-func containsNode(n Node, nodes []Node) bool {
+func containsNode(n *Node, nodes []*Node) bool {
 	for i := range nodes {
-		if nodes[i].id == n.id {
+		if nodes[i].ID == n.ID {
 			return true
 		}
 	}
@@ -98,9 +130,7 @@ func containsNode(n Node, nodes []Node) bool {
 // GetNodeID takes in a string, md5s it, and returns a 32 bit value of it truncated
 // see here for more information:
 // https://stackoverflow.com/questions/28128285/best-way-to-convert-an-md5-to-decimal-in-golang
-
-func GetNodeID(n int) uint32 {
-	s := strconv.Itoa(n)
+func GetNodeID(s string) uint32 {
 	h := md5.New()
 	h.Write([]byte(s))
 	sum := h.Sum(nil)
@@ -110,14 +140,14 @@ func GetNodeID(n int) uint32 {
 	return binary.BigEndian.Uint32(sum)
 }
 
-func initNodes(nodeCount, zoneCount int) []Node {
-	nodes := make([]Node, nodeCount)
+func InitNodes(nodeCount, zoneCount int) []*Node {
+	nodes := make([]*Node, nodeCount)
 	var i int
 	for i < nodeCount {
 		var zone int
 		for zone < zoneCount && i < nodeCount {
 			nodeID := i
-			nodes[i] = Node{id: nodeID, zone: zone}
+			nodes[i] = &Node{ID: nodeID, Zone: zone, Data: make(map[string]string)}
 			zone++
 			i++
 		}

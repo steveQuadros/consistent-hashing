@@ -10,14 +10,15 @@ import (
 )
 
 func TestRing(t *testing.T) {
-	PartitionPower := 16
-	Replicas := 3
-	NodeCount := 256
-	ZoneCount := 16
-	ring := New(NodeCount, ZoneCount, PartitionPower, Replicas)
+	partitionPower := 16
+	replicas := 3
+	nodeCount := 256
+	zoneCount := 16
+	nodes := InitNodes(nodeCount, zoneCount)
+	ring := New(nodes, zoneCount, partitionPower, replicas)
 	testZones(t, ring)
-	testNodePartitions(t, ring, NodeCount, PartitionPower)
-	testGetNodes(t, ring, Replicas)
+	testNodePartitions(t, ring, nodeCount, partitionPower)
+	testGetNodes(t, ring, replicas)
 }
 
 func testZones(t *testing.T, ring Ring) {
@@ -25,7 +26,7 @@ func testZones(t *testing.T, ring Ring) {
 	nodeCountPerZone := ring.NodeCount() / ring.ZoneCount()
 	zones := map[int]int{}
 	for _, n := range ring.Nodes() {
-		zones[n.zone]++
+		zones[n.Zone]++
 	}
 	for _, c := range zones {
 		require.Equal(t, nodeCountPerZone, c)
@@ -47,13 +48,13 @@ func testNodePartitions(t *testing.T, ring Ring, nodeCount, partitionPower int) 
 
 func testGetNodes(t *testing.T, ring Ring, replicas int) {
 	// get nodes should return REPLICA number of different nodes to write to
-	nodes := ring.GetNodes(0)
+	nodes := ring.GetNodes("0")
 	require.Equal(t, replicas, len(nodes))
 
 	// ids need to be unique
 	nodeIDs := map[int]struct{}{}
 	for _, n := range nodes {
-		nodeIDs[n.id] = struct{}{}
+		nodeIDs[n.ID] = struct{}{}
 	}
 
 	require.Equal(t, replicas, len(nodeIDs))
@@ -62,27 +63,28 @@ func testGetNodes(t *testing.T, ring Ring, replicas int) {
 func BenchmarkRing(b *testing.B) {
 	start := time.Now()
 
-	PartitionPower := 16
-	Replicas := 3
-	NodeCount := 256
-	ZoneCount := 16
-	ring := New(NodeCount, ZoneCount, PartitionPower, Replicas)
+	partitionPower := 16
+	replicas := 3
+	nodeCount := 256
+	zoneCount := 16
+	nodes := InitNodes(nodeCount, zoneCount)
+	ring := New(nodes, zoneCount, partitionPower, replicas)
 
 	dataIDCount := 10000000
 	nodeCounts := map[int]int{}
 	zoneCounts := map[int]int{}
 
 	for i := 0; i < dataIDCount; i++ {
-		nodes := ring.GetNodes(i)
+		nodes := ring.GetNodes(strconv.Itoa(i))
 		for j := range nodes {
-			nodeCounts[nodes[j].id]++
-			zoneCounts[nodes[j].zone]++
+			nodeCounts[nodes[j].ID]++
+			zoneCounts[nodes[j].Zone]++
 		}
 	}
 
 	b.Log(fmt.Sprintf("%0.1fs to test ring", time.Since(start).Seconds()))
 
-	desiredCount := float64(dataIDCount) / float64(NodeCount) * float64(ring.replicas)
+	desiredCount := float64(dataIDCount) / float64(nodeCount) * float64(ring.replicas)
 	b.Log(fmt.Sprintf("%d: desired data ids per node", int(desiredCount)))
 
 	var maxCount int
@@ -106,10 +108,10 @@ func BenchmarkRing(b *testing.B) {
 
 	zonesInNodes := make(map[int]struct{})
 	for _, n := range ring.nodes {
-		zonesInNodes[n.zone] = struct{}{}
+		zonesInNodes[n.Zone] = struct{}{}
 	}
 
-	desiredZones := float64(dataIDCount) / float64(ZoneCount*ring.replicas)
+	desiredZones := float64(dataIDCount) / float64(zoneCount*ring.replicas)
 	b.Log(fmt.Sprintf("%d: desired data ids per zone", int(desiredZones)))
 	for _, c := range zoneCounts {
 		if c > maxCount {
@@ -152,7 +154,7 @@ func TestGetID(t *testing.T) {
 
 	for _, tt := range tc {
 		t.Run(fmt.Sprintf("%d -> %d", tt.in, tt.out), func(t *testing.T) {
-			actual := GetNodeID(tt.in)
+			actual := GetNodeID(strconv.Itoa(tt.in))
 			require.Equal(t, tt.out, actual, fmt.Sprintf("%d -> %d", tt.out, actual))
 		})
 	}

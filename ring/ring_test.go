@@ -116,6 +116,8 @@ func BenchmarkRing(b *testing.B) {
 			maxCount = c
 		}
 	}
+
+	// @TODO fix zone count issues
 	over = 100.0 * ((float64(maxCount) - desiredZones) / desiredCount)
 	b.Log(fmt.Sprintf("%d: most data ids in one zone, %.02f%% over", maxCount, over))
 
